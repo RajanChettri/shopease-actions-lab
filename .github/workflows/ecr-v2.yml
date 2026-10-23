@@ -1,0 +1,118 @@
+name: ShopEase - Container Release Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+
+jobs:
+  test:
+    name: 1 - Run Python Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify pytest installation
+        run: python -m pip show pytest
+
+      - name: Run application tests
+        run: python -m pytest
+
+  build-and-push:
+    name: 2 - Build and Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Check AWS role configuration
+        env:
+          AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch reference: $GITHUB_REF"
+
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "::error::AWS_ROLE_ARN is missing"
+            exit 1
+          fi
+
+          if [ -z "$AWS_REGION" ]; then
+            echo "::error::AWS_REGION is missing"
+            exit 1
+          fi
+
+          if [ -z "$ECR_REPOSITORY" ]; then
+            echo "::error::ECR_REPOSITORY is missing"
+            exit 1
+          fi
+
+          echo "AWS role, region, and ECR repository variables are configured."
+
+      - name: Authenticate to AWS with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActionsShopEase
+          retry-max-attempts: 2
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Sign in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Building image: $IMAGE"
+          docker build --pull -t "$IMAGE" .
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Test Docker container
+        run: |
+          docker run --rm "$IMAGE"
+
+      - name: Push image to Amazon ECR
+        run: |
+          docker push "$IMAGE"
+          echo "Image successfully pushed to ECR."
+
+      - name: Publish release summary
+        if: success()
+        run: |
+          echo "## ShopEase Container Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Repository:** $ECR_REPOSITORY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **AWS Region:** $AWS_REGION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image:** $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
