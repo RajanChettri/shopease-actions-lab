@@ -1,0 +1,34 @@
+name: YAML Playground
+
+on: workflow_dispatch
+
+env:
+  STORE_NAME: ShopEase
+
+jobs:
+  contexts:
+    runs-on: ubuntu-latest
+    env:
+      REGION: ap-south-1
+    steps:
+      - name: Show contexts
+        env:
+          WHO: ${{ github.actor }}
+        run: |
+          echo "Store : $STORE_NAME"
+          echo "Region: $REGION"
+          echo "Actor : $WHO"
+          echo "Branch: ${{ github.ref_name }}"
+
+      - name: Runs only on main
+        if: github.ref_name == 'main'
+        run: echo "We are on main"
+
+      - name: Write a job summary
+        run: |
+          echo "### ShopEase summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed by **${{ github.actor }}**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Always runs, even after a failure
+        if: always()
+        run: echo "Cleanup step"
