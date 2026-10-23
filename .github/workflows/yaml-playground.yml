@@ -1,6 +1,7 @@
 name: YAML Playground
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 env:
   STORE_NAME: ShopEase
@@ -10,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REGION: ap-south-1
+
     steps:
       - name: Show contexts
         env:
