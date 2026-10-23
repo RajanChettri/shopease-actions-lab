@@ -1,19 +1,34 @@
-name: Hello ShopEase
+name: YAML Playground
 
-on:
-  push:
-  workflow_dispatch:
+on: workflow_dispatch
+
+env:
+  STORE_NAME: ShopEase
 
 jobs:
-  greet:
+  contexts:
     runs-on: ubuntu-latest
+    env:
+      REGION: ap-south-1
     steps:
-      - name: Say hello
-        run: echo "Hello from ShopEase CI!"
-
-      - name: Who and where am I?
+      - name: Show contexts
+        env:
+          WHO: ${{ github.actor }}
         run: |
-          echo "Repository : $GITHUB_REPOSITORY"
-          echo "Triggered by: $GITHUB_EVENT_NAME"
-          echo "Commit      : $GITHUB_SHA"
-          echo "Runner OS   : $RUNNER_OS"
+          echo "Store : $STORE_NAME"
+          echo "Region: $REGION"
+          echo "Actor : $WHO"
+          echo "Branch: ${{ github.ref_name }}"
+
+      - name: Runs only on main
+        if: github.ref_name == 'main'
+        run: echo "We are on main"
+
+      - name: Write a job summary
+        run: |
+          echo "### ShopEase summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed by **${{ github.actor }}**" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Always runs, even after a failure
+        if: always()
+        run: echo "Cleanup step
