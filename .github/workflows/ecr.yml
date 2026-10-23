@@ -1,4 +1,3 @@
-```yaml
 name: ShopEase - Build and Push to ECR
 
 on:
@@ -86,4 +85,3 @@ jobs:
           echo "- **Region:** $AWS_REGION" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Image:** $IMAGE" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Commit:** $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
-```
